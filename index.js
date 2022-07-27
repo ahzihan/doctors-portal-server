@@ -26,6 +26,9 @@ async function run() {
             res.send( services );
         } );
 
+        //Warning
+        //This is not the proper way to query
+        //After learning more about mongodb, use aggregate lookup, pipeline, group
         app.get( '/available', async ( req, res ) => {
             const date = req.query.date;
 
@@ -39,9 +42,9 @@ async function run() {
             //step-3: for each service, find bookings for that service
             services.forEach( service => {
                 const serviceBookings = bookings.filter( book => book.treatment === service.name );
-                const booked = serviceBookings.map( book => book.slot );
-                const available = service.slots.filter( slot => !booked.includes( slot ) );
-                service.available = available;
+                const bookedSlots = serviceBookings.map( book => book.slot );
+                const available = service.slots.filter( slot => !bookedSlots.includes( slot ) );
+                service.slots = available;
             } );
 
             res.send( services );
@@ -68,9 +71,9 @@ async function run() {
         } );
 
         app.get( '/booking', async ( req, res ) => {
-            const query = {};
-            const cursor = bookingCollection.find( query );
-            const bookings = await cursor.toArray();
+            const email = req.query.email;
+            const query = { email: email };
+            const bookings = await bookingCollection.find( query ).toArray();
             res.send( bookings );
         } );
 
@@ -88,6 +91,6 @@ app.get( '/', ( req, res ) => {
 } );
 
 
-app.listen( port, ( req, res ) => {
+app.listen( port, () => {
     console.log( 'Server is Running port: ', port );
 } );
