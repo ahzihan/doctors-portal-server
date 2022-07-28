@@ -1,4 +1,5 @@
 require( "dotenv" ).config();
+const jwt = require( 'jsonwebtoken' );
 const { MongoClient, ServerApiVersion } = require( 'mongodb' );
 const express = require( 'express' );
 const cors = require( 'cors' );
@@ -13,11 +14,37 @@ app.use( cors() );
 const uri = `mongodb+srv://${ process.env.DB_USER }:${ process.env.DB_PASS }@cluster0.kldhy00.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient( uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 } );
 
+const verifyJWT = ( req, res, next ) => {
+    const authHeader = req.headers.authorization;
+    if ( !authHeader ) {
+        return res.status( 401 ).send( { message: 'UnAuthorized Access' } );
+    }
+    const token = authHeader.split( ' ' )[ 1 ];
+    jwt.verify( token, process.env.ACCESS_TOKEN_SECRET, function ( err, decoded ) {
+        if ( err ) {
+            return res.status( 403 ).send( { message: 'Forbidden Access' } );
+        }
+        req.decoded = decoded;
+        next();
+    } );
+};
+
 async function run() {
     try {
         await client.connect();
         const serviceCollection = client.db( "doctors_portal" ).collection( "services" );
         const bookingCollection = client.db( "doctors_portal" ).collection( "booking" );
+        const usersCollection = client.db( "doctors_portal" ).collection( "users" );
+
+        /**
+         *  API Naming Convention
+         * app.get('/booking')//get all booking in the collection of by filter using query
+         * app.get('/booking/:id')//get a special booking
+         * app.post('/booking')//add a new booking
+         * app.patch('/booking/:id')
+         * app.put('/booking/:id')//upset update or insert
+         * app.delete('/booking/:id')
+         */
 
         app.get( '/service', async ( req, res ) => {
             const query = {};
@@ -50,14 +77,23 @@ async function run() {
             res.send( services );
         } );
 
-        /**
-         *  API Naming Convention
-         * app.get('/booking')//get all booking in the collection of by filter using query
-         * app.get('/booking/:id')//get a special booking
-         * app.post('/booking')//add a new booking
-         * app.patch('/booking/:id')
-         * app.delete('/booking/:id')
-         */
+        app.get( '/user', async ( req, res ) => {
+            const users = await usersCollection.find().toArray();
+            res.send( users );
+        } );
+
+        app.put( '/user/:email', async ( req, res ) => {
+            const user = req.body;
+            const email = req.params.email;
+            const filter = { email: email };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await usersCollection.updateOne( filter, updateDoc, options );
+            const token = jwt.sign( { email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' } );
+            res.send( { result, token } );
+        } );
 
         app.post( '/booking', async ( req, res ) => {
             const info = req.body;
@@ -70,11 +106,18 @@ async function run() {
             return res.send( { success: true, result } );
         } );
 
-        app.get( '/booking', async ( req, res ) => {
+        app.get( '/booking', verifyJWT, async ( req, res ) => {
             const email = req.query.email;
-            const query = { email: email };
-            const bookings = await bookingCollection.find( query ).toArray();
-            res.send( bookings );
+            const decodedEmail = req.decoded.email;
+            if ( email === decodedEmail ) {
+                const query = { email: email };
+                const bookings = await bookingCollection.find( query ).toArray();
+                return res.status( 200 ).send( bookings );
+            }
+            else {
+                return res.status( 403 ).send( { message: 'Forbidden Access' } );
+            }
+
         } );
 
     }
