@@ -35,6 +35,7 @@ async function run() {
         const serviceCollection = client.db( "doctors_portal" ).collection( "services" );
         const bookingCollection = client.db( "doctors_portal" ).collection( "booking" );
         const usersCollection = client.db( "doctors_portal" ).collection( "users" );
+        const doctorCollection = client.db( "doctors_portal" ).collection( "doctors" );
 
         /**
          *  API Naming Convention
@@ -46,10 +47,10 @@ async function run() {
          * app.delete('/booking/:id')
          */
 
-        
+
         app.get( '/service', async ( req, res ) => {
             const query = {};
-            const cursor = serviceCollection.find( query ).project({name: 1});
+            const cursor = serviceCollection.find( query ).project( { name: 1 } );
             const services = await cursor.toArray();
             res.send( services );
         } );
@@ -78,7 +79,7 @@ async function run() {
             res.send( services );
         } );
 
-        app.get( '/user',verifyJWT, async ( req, res ) => {
+        app.get( '/user', verifyJWT, async ( req, res ) => {
             const users = await usersCollection.find().toArray();
             res.send( users );
         } );
@@ -98,28 +99,28 @@ async function run() {
 
         app.put( '/user/admin/:email', verifyJWT, async ( req, res ) => {
             const email = req.params.email;
-            const requester=req.decoded.email;
-            const requesterAccount=await usersCollection.findOne({email:requester});
-            if(requesterAccount.role==='admin'){
+            const requester = req.decoded.email;
+            const requesterAccount = await usersCollection.findOne( { email: requester } );
+            if ( requesterAccount.role === 'admin' ) {
                 const filter = { email: email };
-            const updateDoc = {
-                $set: {role: 'admin'},
-            };
-            const result = await usersCollection.updateOne( filter, updateDoc);
-            return res.send( result);
+                const updateDoc = {
+                    $set: { role: 'admin' },
+                };
+                const result = await usersCollection.updateOne( filter, updateDoc );
+                return res.send( result );
             }
-            else{
-                return res.status(403).send({message: 'Forbidden access'});
+            else {
+                return res.status( 403 ).send( { message: 'Forbidden access' } );
             }
-            
+
         } );
 
-        app.get('/admin/:email',async(req,res)=>{
-            const email=req.params.email;
-            const user=await usersCollection.findOne({email: email});
-            const isAdmin=user.role==='admin';
-            res.send({admin: isAdmin});
-        })
+        app.get( '/admin/:email', async ( req, res ) => {
+            const email = req.params.email;
+            const user = await usersCollection.findOne( { email: email } );
+            const isAdmin = user.role === 'admin';
+            res.send( { admin: isAdmin } );
+        } );
 
         app.post( '/booking', async ( req, res ) => {
             const info = req.body;
@@ -144,6 +145,12 @@ async function run() {
                 return res.status( 403 ).send( { message: 'Forbidden Access' } );
             }
 
+        } );
+
+        app.post( '/doctor', async ( req, res ) => {
+            const doctor = req.body;
+            const result = await doctorCollection.insertOne( doctor );
+            res.send( result );
         } );
 
     }
