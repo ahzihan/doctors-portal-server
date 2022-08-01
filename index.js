@@ -39,6 +39,7 @@ async function run() {
         const bookingCollection = client.db( "doctors_portal" ).collection( "booking" );
         const usersCollection = client.db( "doctors_portal" ).collection( "users" );
         const doctorCollection = client.db( "doctors_portal" ).collection( "doctors" );
+        const paymentCollection = client.db( "doctors_portal" ).collection( "payment" );
 
 
         const verifyAdmin = async ( req, res, next ) => {
@@ -85,10 +86,8 @@ async function run() {
         //After learning more about mongodb, use aggregate lookup, pipeline, group
         app.get( '/available', async ( req, res ) => {
             const date = req.query.date;
-
             //step-1: get all services
             const services = await serviceCollection.find().toArray();
-
             //step-2: get the booking of the day
             const query = { date: date };
             const bookings = await bookingCollection.find( query ).toArray();
@@ -163,12 +162,28 @@ async function run() {
             }
 
         } );
+
         app.get( '/booking/:id', verifyJWT, async ( req, res ) => {
             const id = req.params.id;
             const query = { _id: ObjectId( id ) };
             const booking = await bookingCollection.findOne( query );
             res.send( booking );
         } );
+
+        app.patch('/booking/:id',verifyJWT,async(req,res)=>{
+            const id=req.params.id;
+            const payment=req.body;
+            const filter={_id: ObjectId(id)};
+            const updateDoc={
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const result=await paymentCollection.insertOne(payment);
+            const updatedBooking=await bookingCollection.updateOne(filter,updateDoc);
+            res.send(updatedBooking);
+        })
 
         app.get( '/doctor', verifyJWT, verifyAdmin, async ( req, res ) => {
             const doctors = await doctorCollection.find().toArray();
